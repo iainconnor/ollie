@@ -212,8 +212,8 @@ public final class Ollie {
 	// Cache methods
 
 	static synchronized <T extends Model> void putEntity(T entity) {
-		if (entity.id != null) {
-			sCache.put(getEntityIdentifier(entity.getClass(), entity.id), entity);
+		if (entity.getId() != null) {
+			sCache.put(getEntityIdentifier(entity.getClass(), entity.getId()), entity);
 		}
 	}
 
@@ -222,7 +222,7 @@ public final class Ollie {
 	}
 
 	static synchronized <T extends Model> void removeEntity(T entity) {
-		sCache.remove(getEntityIdentifier(entity.getClass(), entity.id));
+		sCache.remove(getEntityIdentifier(entity.getClass(), entity.getId()));
 	}
 
 	static synchronized <T extends Model> T getOrFindEntity(Class<T> cls, long id) {
@@ -241,6 +241,10 @@ public final class Ollie {
 
 	static synchronized <T extends Model> Long save(T entity) {
 		return sAdapterHolder.getModelAdapter(entity.getClass()).save(entity, sSQLiteDatabase);
+	}
+
+	static synchronized <T extends Model> Long saveIgnoringNulls(T entity) {
+		return sAdapterHolder.getModelAdapter(entity.getClass()).saveIgnoringNulls(entity, sSQLiteDatabase);
 	}
 
 	static synchronized <T extends Model> void delete(T entity) {

@@ -22,6 +22,8 @@ import android.database.sqlite.SQLiteDatabase;
 import android.provider.BaseColumns;
 import ollie.Model;
 
+import java.sql.SQLException;
+
 /**
  * Used internally to perform database operations on a model.
  */
@@ -36,15 +38,18 @@ public abstract class ModelAdapter<T extends Model> {
 
 	public abstract Long save(T entity, SQLiteDatabase db);
 
+	public abstract Long saveIgnoringNulls(T entity, SQLiteDatabase db);
+
 	public abstract void delete(T entity, SQLiteDatabase db);
 
 	protected final Long insertOrUpdate(T entity, SQLiteDatabase db, ContentValues values) {
-		if (entity.id == null) {
-			entity.id = db.insert(getTableName(), null, values);
-		} else {
-			db.update(getTableName(), values, BaseColumns._ID + "=?", new String[]{entity.id.toString()});
+		try {
+			Long insertionId = db.insertOrThrow(getTableName(), null, values);
+			entity.setId(insertionId);
+		} catch ( Exception e ) {
+			db.update(getTableName(), values, BaseColumns._ID + "=?", new String[] {entity.getId().toString()});
 		}
 
-		return entity.id;
+		return entity.getId();
 	}
 }

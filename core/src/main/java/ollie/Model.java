@@ -32,10 +32,9 @@ import ollie.query.Select;
 public abstract class Model {
 	public static final String _ID = BaseColumns._ID;
 
-	@Column(_ID)
-	@PrimaryKey
-	@AutoIncrement
-	public Long id;
+	abstract public Long getId();
+
+	abstract public void setId(Long id);
 
 	/**
 	 * <p>
@@ -71,10 +70,19 @@ public abstract class Model {
 	 * @return The record id.
 	 */
 	public final Long save() {
-		id = Ollie.save(this);
+		setId(Ollie.save(this));
 		Ollie.putEntity(this);
 		notifyChange();
-		return id;
+
+		return getId();
+	}
+
+	public final Long saveIgnoringNulls() {
+		setId(Ollie.saveIgnoringNulls(this));
+		Ollie.putEntity(this);
+		notifyChange();
+
+		return getId();
 	}
 
 	/**
@@ -86,7 +94,8 @@ public abstract class Model {
 		Ollie.delete(this);
 		Ollie.removeEntity(this);
 		notifyChange();
-		id = null;
+
+		setId(null);
 	}
 
 	/**
@@ -96,15 +105,15 @@ public abstract class Model {
 	 */
 	private void notifyChange() {
 		if (OllieProvider.isImplemented()) {
-			Ollie.getContext().getContentResolver().notifyChange(OllieProvider.createUri(getClass(), id), null);
+			Ollie.getContext().getContentResolver().notifyChange(OllieProvider.createUri(getClass(), getId()), null);
 		}
 	}
 
 	@Override
 	public boolean equals(Object obj) {
-		if (obj instanceof Model && id != null) {
+		if (obj instanceof Model && getId() != null) {
 			final Model other = (Model) obj;
-			return Ollie.getTableName(getClass()).equals(Ollie.getTableName(other.getClass())) && id.equals(other.id);
+			return Ollie.getTableName(getClass()).equals(Ollie.getTableName(other.getClass())) && getId().equals(other.getId());
 		}
 		return this == obj;
 	}
@@ -113,7 +122,7 @@ public abstract class Model {
 	public int hashCode() {
 		int hash = 1;
 		hash = hash * 17 + getClass().getName().hashCode();
-		hash = hash * 31 + (id != null ? id.intValue() : super.hashCode());
+		hash = hash * 31 + (getId() != null ? getId().intValue() : super.hashCode());
 		return hash;
 	}
 }

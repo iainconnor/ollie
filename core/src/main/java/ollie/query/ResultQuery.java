@@ -16,6 +16,7 @@
 
 package ollie.query;
 
+import android.database.Cursor;
 import ollie.Model;
 import rx.Observable;
 
@@ -33,4 +34,6 @@ public interface ResultQuery extends ExecutableQuery {
 	<T extends Model> Observable<T> observableSingle();
 
 	<T> Observable<T> observableValue(Class<T> type);
+
+	Cursor fetchCursor();
 }

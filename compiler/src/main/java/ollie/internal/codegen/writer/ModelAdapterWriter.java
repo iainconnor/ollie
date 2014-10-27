@@ -16,9 +16,6 @@
 
 package ollie.internal.codegen.writer;
 
-import android.content.ContentValues;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
@@ -99,7 +96,8 @@ public class ModelAdapterWriter implements SourceWriter<TypeElement> {
 		writeGetTableName(javaWriter, tableName);
 		writeGetSchema(javaWriter, tableName, columns);
 		writeLoad(javaWriter, modelQualifiedName, columns);
-		writeSave(javaWriter, modelQualifiedName, columns);
+		writeSave(javaWriter, modelQualifiedName, columns, false);
+		writeSave(javaWriter, modelQualifiedName, columns, true);
 		writeDelete(javaWriter, modelQualifiedName, tableName);
 		writeGetColumnName(javaWriter);
 
@@ -111,9 +109,10 @@ public class ModelAdapterWriter implements SourceWriter<TypeElement> {
 
 		Set<String> imports = Sets.newHashSet(
 				modelQualifiedName,
-				ContentValues.class.getName(),
-				Cursor.class.getName(),
-				SQLiteDatabase.class.getName(),
+				"android.content.ContentValues",
+				"android.database.Cursor",
+				"android.database.sqlite.SQLiteDatabase",
+				"android.provider.BaseColumns",
 				ModelAdapter.class.getName(),
 				CursorNameResolver.class.getName()
 		);
@@ -208,13 +207,9 @@ public class ModelAdapterWriter implements SourceWriter<TypeElement> {
 				int closeParens = 1;
 				if (column.isModel()) {
 					closeParens++;
-					value.append("Ollie.getOrFindEntity(entity.");
-					if (column.getAccessorMethod() != null) {
-						value.append(column.getAccessorMethod().getSimpleName().toString()).append("()");
-					} else {
-						value.append(column.getFieldName());
-					}
-					value.append(".getClass(), ");
+					value.append("Ollie.getOrFindEntity(");
+					value.append(column.getDeserializedSimpleName());
+					value.append(".class, ");
 				} else if (column.requiresTypeAdapter()) {
 					closeParens++;
 					value.append("Ollie.getTypeAdapter(").append(column.getDeserializedSimpleName()).append(".class).deserialize(");
@@ -227,7 +222,9 @@ public class ModelAdapterWriter implements SourceWriter<TypeElement> {
 				}
 			}
 
-			if ( column.getMutatorMethod() != null ) {
+			if ( column.getColumnName().equals(Model._ID) ) {
+				writer.emitStatement("entity.setId(" + value.toString() + ")");
+			} else if ( column.getMutatorMethod() != null ) {
 				writer.emitStatement("entity." + column.getMutatorMethod().getSimpleName().toString() + "(" + value.toString() + ")");
 			} else {
 				writer.emitStatement("entity." + column.getFieldName() + " = " + value.toString());
@@ -244,13 +241,27 @@ public class ModelAdapterWriter implements SourceWriter<TypeElement> {
 		writer.emitEmptyLine();
 	}
 
-	private void writeSave(JavaWriter writer, String modelQualifiedName, Set<ColumnElement> columns) throws
+	private void writeSave(JavaWriter writer, String modelQualifiedName, Set<ColumnElement> columns, boolean ignoreNulls) throws
 			IOException {
 
-		writer.beginMethod("Long", "save", MODIFIERS, modelQualifiedName, "entity", "SQLiteDatabase", "db");
+		writer.beginMethod("Long", "save" + (ignoreNulls ? "IgnoringNulls" : ""), MODIFIERS, modelQualifiedName, "entity", "SQLiteDatabase", "db");
 		writer.emitStatement("ContentValues values = new ContentValues()");
 
 		for (ColumnElement column : columns) {
+			String accessor;
+
+			if ( column.getColumnName().equals(Model._ID) ) {
+				accessor = "getId()";
+			} else if ( column.getAccessorMethod() != null ) {
+				accessor = column.getAccessorMethod().getSimpleName().toString() + "()";
+			} else {
+				accessor = column.getFieldName();
+			}
+
+			if ( ignoreNulls ) {
+				writer.beginControlFlow("if (entity." + accessor + " != null)");
+			}
+
 			final StringBuilder value = new StringBuilder();
 			int closeParens = 0;
 
@@ -262,13 +273,7 @@ public class ModelAdapterWriter implements SourceWriter<TypeElement> {
 						.append(".class).serialize(");
 			}
 
-			value.append("entity.");
-
-			if ( column.getAccessorMethod() != null ) {
-				value.append(column.getAccessorMethod().getSimpleName().toString()).append("()");
-			} else {
-				value.append(column.getFieldName());
-			}
+			value.append("entity.").append(accessor);
 
 			if (column.isModel()) {
 				value.append(" != null ? ");
@@ -279,7 +284,7 @@ public class ModelAdapterWriter implements SourceWriter<TypeElement> {
 				} else {
 					value.append(column.getFieldName());
 				}
-				value.append(".id");
+				value.append(".getId()");
 				value.append(" : null");
 			}
 
@@ -288,6 +293,10 @@ public class ModelAdapterWriter implements SourceWriter<TypeElement> {
 			}
 
 			writer.emitStatement("values.put(\"" + column.getColumnName() + "\", " + value.toString() + ")");
+
+			if ( ignoreNulls ) {
+				writer.endControlFlow();
+			}
 		}
 
 		writer.emitStatement("return insertOrUpdate(entity, db, values)");
@@ -298,7 +307,7 @@ public class ModelAdapterWriter implements SourceWriter<TypeElement> {
 	private void writeDelete(JavaWriter writer, String modelQualifiedName, String tableName) throws IOException {
 		writer.beginMethod("void", "delete", MODIFIERS, modelQualifiedName, "entity", "SQLiteDatabase", "db");
 		writer.emitStatement("db.delete(\"" + tableName + "\", \"" + Model._ID
-				+ "=?\", new String[]{entity.id.toString()})");
+				+ "=?\", new String[]{entity.getId().toString()})");
 		writer.endMethod();
 		writer.emitEmptyLine();
 	}

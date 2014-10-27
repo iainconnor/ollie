@@ -17,8 +17,10 @@
 package ollie.query;
 
 import android.database.Cursor;
+import android.support.v4.content.Loader;
 import ollie.Model;
 import ollie.Ollie;
+import ollie.OllieProvider;
 import ollie.util.QueryUtils;
 import rx.Observable;
 import rx.Subscriber;
@@ -112,5 +114,19 @@ public abstract class ResultQueryBase extends ExecutableQueryBase implements Res
 				}
 			}
 		});
+	}
+
+	@Override
+	public Cursor fetchCursor () {
+		final Cursor cursor = Ollie.getDatabase().rawQuery(getSql(), getArgs());
+		if (!cursor.moveToFirst()) {
+			return null;
+		}
+
+		if (OllieProvider.isImplemented()) {
+			cursor.setNotificationUri(Ollie.getContext().getContentResolver(), OllieProvider.createUri(mTable));
+		}
+
+		return cursor;
 	}
 }

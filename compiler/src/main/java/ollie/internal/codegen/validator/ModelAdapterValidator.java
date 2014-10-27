@@ -20,9 +20,11 @@ import ollie.internal.codegen.Registry;
 
 import javax.annotation.processing.Messager;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.Modifier;
 
 import static javax.lang.model.element.ElementKind.CLASS;
 import static javax.tools.Diagnostic.Kind.ERROR;
+import static javax.tools.Diagnostic.Kind.NOTE;
 
 public class ModelAdapterValidator implements Validator {
 	private Messager messager;
@@ -36,6 +38,13 @@ public class ModelAdapterValidator implements Validator {
 		if (!element.getKind().equals(CLASS)) {
 			messager.printMessage(ERROR, "@Table applies only to Model classes.", element);
 			return false;
+		}
+
+		for ( Modifier modifier : element.getModifiers() ) {
+			if ( modifier == Modifier.ABSTRACT ) {
+				messager.printMessage(NOTE, "@Table ignored for abstract Model classes.", element);
+				return false;
+			}
 		}
 
 		return true;

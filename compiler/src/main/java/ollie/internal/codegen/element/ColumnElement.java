@@ -16,8 +16,7 @@
 
 package ollie.internal.codegen.element;
 
-import android.database.Cursor;
-import android.text.TextUtils;
+import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
 import ollie.annotation.*;
 import ollie.cursor_name_resolver.CursorNameResolver;
@@ -101,7 +100,7 @@ public class ColumnElement {
 			}
 		}
 
-		List<ExecutableElement> enclosedElements = ElementFilter.methodsIn(enclosingType.getEnclosedElements());
+		List<ExecutableElement> enclosedElements = ElementFilter.methodsIn(registry.getElements().getAllMembers(enclosingType));
 		for ( ExecutableElement enclosedElement : enclosedElements ) {
 			Accessor accessor = enclosedElement.getAnnotation(Accessor.class);
 			if ( accessor != null && accessor.value().equals(column.value()) ) {
@@ -210,7 +209,7 @@ public class ColumnElement {
 
 			if (foreignKey.foreignColumns().length > 0) {
 				builder.append("(");
-				builder.append(TextUtils.join(",", foreignKey.foreignColumns()));
+				builder.append(Joiner.on(",").join(foreignKey.foreignColumns()));
 				builder.append(")");
 			}
 			if (!foreignKey.onDelete().equals(ReferentialAction.NONE)) {
